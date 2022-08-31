@@ -1,5 +1,5 @@
 require 'erb'
-require 'csv'
+require 'yaml'
 class Hangman
     @@word_bank = File.read('google-10000-english-no-swears.txt')
     @@word_bank_array = @@word_bank.split(" ")
@@ -23,36 +23,51 @@ class Hangman
     def start
         puts "Welcome! Press 1 to start a new game. Press 2 to load a saved game."
         choice = gets.chomp.to_i
-        if choice == 1
-            @word_to_guess = @@acceptable_word_bank_array.sample
-            @correct_guesses_array = Array.new(@word_to_guess.length, 0)
-            while @number_of_guesses_left > 0 && @correct_guesses_array != @word_to_guess.split("")
-                puts "Pick a letter to guess, or type save to save this game"
-                selection = gets.chomp.downcase
-                if selection == 'save'
-                    puts "Please choose a name for your save file"
-                    name = gets.chomp
-                elsif @word_to_guess.split("").include?(selection)
-                    reveal_letters(@word_to_guess, selection, @correct_guesses_array)
+        @word_to_guess = @@acceptable_word_bank_array.sample
+        @correct_guesses_array = Array.new(@word_to_guess.length, 0)
+        if choice == 2
+            puts "Enter the name of your save file"
+            name = gets.chomp
+            file = YAML.load(File.open(File.join(File.dirname(__FILE__), "/saved_games/#{name}.yaml")))
+            @word_to_guess = file[:word]
+            @correct_guesses_array = file[:correct_guesses]
+            @number_of_guesses_left = file[:guesses_left]
+            @array_of_wrong_guesses = file[:incorrect_guesses]
+        end
+        while @number_of_guesses_left > 0 && @correct_guesses_array != @word_to_guess.split("")
+            puts "Pick a letter to guess, or type save to save this game"
+            selection = gets.chomp.downcase
+            if selection == 'save'
+                puts "Please choose a name for your save file"
+                name = gets.chomp
+                file = {
+                    word: @word_to_guess,
+                    correct_guesses: @correct_guesses_array,
+                    guesses_left: @number_of_guesses_left,
+                    incorrect_guesses: @array_of_wrong_guesses,
+                }        
+                File.open(File.join(Dir.pwd, "/saved_games/#{name}.yaml"), 'w')  { |f| f.write(YAML.dump(file)) }
+                puts "File Saved Successfully!"
+                break
+            elsif @word_to_guess.split("").include?(selection)
+                reveal_letters(@word_to_guess, selection, @correct_guesses_array)
+            else
+                if @array_of_wrong_guesses.include?(selection)
+                    puts "You already guessed that letter, try again"
                 else
-                    if @array_of_wrong_guesses.include?(selection)
-                        puts "You already guessed that letter, try again"
-                    else
-                        @number_of_guesses_left -= 1
-                        @array_of_wrong_guesses.push(selection)
-                    end
+                    @number_of_guesses_left -= 1
+                    @array_of_wrong_guesses.push(selection)
                 end
-                p @correct_guesses_array
-                puts "Incorrect guesses: "
-                p @array_of_wrong_guesses
-                puts "You have #{@number_of_guesses_left} wrong guesses left."
             end
-            if @number_of_guesses_left > 0
-                puts "Congratulations! You correctly guessed the word #{@word_to_guess}!"
-            end
-
-        elsif choice == 2
-
+            p @correct_guesses_array
+            puts "Incorrect guesses: "
+            p @array_of_wrong_guesses
+            puts "You have #{@number_of_guesses_left} wrong guesses left."
+        end
+        if @number_of_guesses_left > 0 && @correct_guesses_array == @word_to_guess.split("")
+            puts "Congratulations! You correctly guessed the word #{@word_to_guess}!"
+        else
+            puts "Sorry, the correct word was #{@word_to_guess}"
         end
     end
 
